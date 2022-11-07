@@ -4,6 +4,7 @@ package evil
 
 import "fmt"
 
+// Ok(T) or Err(error)
 type Result[T any] struct {
 	val T
 	err error
@@ -60,4 +61,17 @@ func (r Result[T]) UnwrapErr() error {
 	}
 
 	return r.err
+}
+
+// method must have no type parameters
+// func (r Result[T]) AndThen[U any](op func(val T) Result[U]) Result[U] {
+//
+// }
+
+func AndThen[T any, U any](r Result[T], op func(val T) Result[U]) Result[U] {
+	if r.IsOk() {
+		return op(r.val)
+	}
+
+	return Err[U](r.err)
 }
