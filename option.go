@@ -1,15 +1,27 @@
 // implement Option type based on https://doc.rust-lang.org/std/option/enum.Option.html
 package evil
 
+import "fmt"
+
 type Option[T any] struct {
 	val    T
 	isSome bool
 }
 
+func (o Option[T]) String() string {
+	if o.isSome {
+		return fmt.Sprintf("Some(%v)", o.val)
+	}
+
+	return "None"
+}
+
+// Make a `None` value for the given option type.
 func None[T any]() Option[T] {
 	return Option[T]{}
 }
 
+// Make a `Some` value for the given option type
 func Some[T any](val T) Option[T] {
 	return Option[T]{
 		val:    val,
@@ -80,7 +92,12 @@ func (o Option[T]) UnwrapOrElse(f func() T) T {
 //
 // If `Some`, returns the contained value, otherwise if `None`, returns the `default value` for that type.
 func (o Option[T]) UnwrapOrDefault() T {
-	return o.val
+	if o.IsSome() {
+		return o.val
+	}
+
+	var defaultValue T
+	return defaultValue
 }
 
 /**************
@@ -89,10 +106,9 @@ func (o Option[T]) UnwrapOrDefault() T {
 // May support in the future
 //
 // Maps an Option[T] to Option[U] by applying a function to a contained value.
-// func (o Option[T]) Map[U any](f (val T) U) Option[U] {
-// }
+// func (o Option[T]) Map[U any](f (val T) U) Option[U] {}
 //
-// MapOr(), MapOrElse()
+// MapOr, MapOrElse
 **************/
 
 // TODO Needs to think about this
@@ -105,7 +121,7 @@ func (o Option[T]) UnwrapOrDefault() T {
 //
 // May support in the future
 //
-// OkOr(), OkOrElse()
+// OkOr, OkOrElse
 **************/
 
 // Returns `None` if the option is `None`, otherwise returns `optb`.
@@ -124,7 +140,7 @@ func (o Option[T]) And(optb Option[T]) Option[T] {
 //
 // May support in the future
 //
-// AndThen()
+// AndThen
 **************/
 
 // Returns `None` if the option is `None`, otherwise calls `predicate` with the wrapped value and returns:
@@ -144,23 +160,131 @@ func (o Option[T]) Filter(predicate func(T) bool) Option[T] {
 	return o
 }
 
-// TODO
-func (o Option[T]) Or() {}
+// Returns the option if it contains a value, otherwise returns `optb`.
+//
+// Arguments passed to or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use `OrElse`, which is lazily evaluated.
+func (o Option[T]) Or(optb Option[T]) Option[T] {
+	if o.IsSome() {
+		return o
+	}
 
-func (o Option[T]) OrElse() {}
+	return optb
+}
 
-func (o Option[T]) Xor() {}
+// Returns the option if it contains a value, otherwise calls `f` and returns the result.
+func (o Option[T]) OrElse(f func() Option[T]) Option[T] {
+	if o.IsSome() {
+		return o
+	}
 
-func (o *Option[T]) Insert() {}
+	return f()
+}
 
-func (o *Option[T]) GetOrInsert() {}
+// Returns `Some` if exactly one of the option itself, `optb` is `Some`, otherwise returns `None`.
+func (o Option[T]) Xor(optb Option[T]) Option[T] {
+	switch {
+	case o.IsSome() && optb.IsSome():
+		return o
+	case o.IsNone() && optb.IsNone():
+		return o
+	default:
+		return None[T]()
+	}
+}
 
-func (o *Option[T]) GetOrInsertDefault() {}
+// Inserts `value` into the option, then returns a reference to it.
+//
+// If the option already contains a value, the old value is dropped.
+//
+// See also `GetOrInsert`, which doesn’t update the value if the option already contains `Some`.
+func (o *Option[T]) Insert(value T) *T {
+	o.val = value
+	o.isSome = true
 
-func (o *Option[T]) GetOrInsertWith() {}
+	return &o.val
+}
 
-func (o *Option[T]) Take() {}
+// Inserts value into the option if it is `None`, then returns a reference to the contained value.
+//
+// See also Insert, which updates the value even if the option already contains `Some`.
+func (o *Option[T]) GetOrInsert(value T) *T {
+	if o.IsNone() {
+		o.val = value
+		o.isSome = true
+	}
 
-func (o Option[T]) Replace() {}
+	return &o.val
+}
 
-func (o Option[T]) Contains() {}
+// Inserts the default value into the option if it is `None`, then returns a mutable reference to the contained value.
+func (o *Option[T]) GetOrInsertDefault() *T {
+	if o.IsNone() {
+		var defaultValue T
+		o.val = defaultValue
+		o.isSome = true
+	}
+
+	return &o.val
+}
+
+// Inserts a value computed from `f` into the option if it is `None`, then returns a mutable reference to the contained value.
+func (o *Option[T]) GetOrInsertWith(f func() T) *T {
+	if o.IsNone() {
+		o.val = f()
+		o.isSome = true
+	}
+
+	return &o.val
+}
+
+// Takes the value out of the option, leaving a `None` in its place.
+func (o *Option[T]) Take() Option[T] {
+	if o.IsNone() {
+		return None[T]()
+	}
+
+	// store the old value
+	old := Some(o.val)
+
+	// turn o into a `None`
+	var defaultValue T
+	o.val = defaultValue
+	o.isSome = false
+
+	return old
+}
+
+// Replaces the actual value in the option by the value given in parameter, returning the old value if present, leaving a `Some` in its place without deinitializing either one.
+func (o *Option[T]) Replace(value T) Option[T] {
+	if o.IsNone() {
+		o.val = value
+		o.isSome = true
+
+		return None[T]()
+	}
+
+	// store the old value
+	old := Some(o.val)
+
+	// replace the value
+	o.val = value
+
+	return old
+}
+
+// type T MUST be comparable
+// func (o *Option[T]) Contains(value *T) bool {
+// 	   if o.IsSome() {
+// 		   return o.val == *value
+// 	   }
+//
+//     return false
+// }
+
+/**************
+// Couldn't implement these method cause method must have no type parametes
+//
+// May support in the future
+//
+// Zip, ZipWith, Unzip
+**************/

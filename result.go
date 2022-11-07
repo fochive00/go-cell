@@ -9,6 +9,14 @@ type Result[T any] struct {
 	err error
 }
 
+func (r Result[T]) String() string {
+	if r.err == nil {
+		return fmt.Sprintf("Ok(%v)", r.val)
+	}
+
+	return fmt.Sprintf("Err(%v)", r.err)
+}
+
 func Ok[T any](val T) Result[T] {
 	return Result[T]{
 		val: val,
