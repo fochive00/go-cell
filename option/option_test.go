@@ -3,7 +3,7 @@ package evil_test
 import (
 	"testing"
 
-	. "github.com/fochive00/evil"
+	. "github.com/fochive00/evil/option"
 )
 
 type A struct {
@@ -22,14 +22,28 @@ func TestOption(t *testing.T) {
 	if i != None[int]() {
 		t.Fatalf("")
 	}
+
 	if astruct != None[A]() {
 		t.Fatalf("")
 	}
+
 	if ptr != None[*A]() {
 		t.Fatalf("")
 	}
+
 	if anya != None[any]() {
 		t.Fatalf("")
+	}
+
+	//
+	switch {
+	case i.IsSome():
+		a := i.Unwrap()
+		if a == 5 {
+
+		}
+
+	case i.IsNone():
 	}
 
 	// Example

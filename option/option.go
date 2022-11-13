@@ -1,7 +1,9 @@
 // implement Option type based on https://doc.rust-lang.org/std/option/enum.Option.html
 package evil
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Option[T any] struct {
 	val    T
@@ -108,7 +110,7 @@ func (o Option[T]) UnwrapOrDefault() T {
 // Maps an Option[T] to Option[U] by applying a function to a contained value.
 // func (o Option[T]) Map[U any](f (val T) U) Option[U] {}
 //
-// MapOr, MapOrElse
+// Map, MapOr, MapOrElse
 **************/
 
 // TODO Needs to think about this
@@ -135,19 +137,21 @@ func (o Option[T]) And(optb Option[T]) Option[T] {
 	return optb
 }
 
-/**************
-// Couldn't implement these method cause method must have no type parametes
+// Returns `None` if the option is `None`, otherwise calls `f` with the wrapped value and returns the result.
 //
-// May support in the future
-//
-// AndThen
-**************/
+// Some languages call this operation flatmap.
+func AndThen[T any, U any](o Option[T], f func(T) Option[U]) Option[U] {
+	if o.IsNone() {
+		return None[U]()
+	}
+
+	return f(o.Unwrap())
+}
 
 // Returns `None` if the option is `None`, otherwise calls `predicate` with the wrapped value and returns:
 //
-// - `Some(val)` if predicate returns true (where val is the wrapped value), and
-//
-// - `None` if predicate returns false.
+//   - `Some(val)` if predicate returns true (where val is the wrapped value), and
+//   - `None` if predicate returns false.
 func (o Option[T]) Filter(predicate func(T) bool) Option[T] {
 	if o.IsNone() {
 		return o
@@ -272,12 +276,12 @@ func (o *Option[T]) Replace(value T) Option[T] {
 	return old
 }
 
-// type T MUST be comparable
+//type T MUST be comparable
 // func (o *Option[T]) Contains(value *T) bool {
 // 	   if o.IsSome() {
 // 		   return o.val == *value
 // 	   }
-//
+
 //     return false
 // }
 
