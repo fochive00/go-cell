@@ -3,7 +3,7 @@ package evil_test
 import (
 	"testing"
 
-	. "github.com/fochive00/evil/option"
+	. "github.com/fochive00/evil"
 )
 
 type A struct {
