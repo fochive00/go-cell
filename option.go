@@ -1,11 +1,11 @@
-// implement Option type based on https://doc.rust-lang.org/std/option/enum.Option.html
 package evil
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
-type Option[T any] struct {
+type Option[T comparable] struct {
 	val    T
 	isSome bool
 }
@@ -19,12 +19,12 @@ func (o Option[T]) String() string {
 }
 
 // Make a `None` value for the given option type.
-func None[T any]() Option[T] {
+func None[T comparable]() Option[T] {
 	return Option[T]{}
 }
 
 // Make a `Some` value for the given option type
-func Some[T any](val T) Option[T] {
+func Some[T comparable](val T) Option[T] {
 	return Option[T]{
 		val:    val,
 		isSome: true,
@@ -34,11 +34,6 @@ func Some[T any](val T) Option[T] {
 // Returns `true` if the option is a `Some` value.
 func (o *Option[T]) IsSome() bool {
 	return o.isSome
-}
-
-// Returns `true` if the option is a `Some` and the value inside of it matches a predicate.
-func (o *Option[T]) IsSomeAnd(predicate func(val *T) bool) bool {
-	return o.isSome && predicate(&o.val)
 }
 
 // Returns `true` if the option is a `None` value.
@@ -58,16 +53,8 @@ func (o Option[T]) Expect(msg string) T {
 }
 
 // Returns the contained `Some` value.
-//
-// Because this function may panic, its use is generally discouraged. Instead, prefer to handle the `None` case explicitly, or call UnwrapOr, UnwrapOrElse, or UnwrapOrDefault.
-//
-// Panics if the value is a `None`.
-func (o Option[T]) Unwrap() T {
-	if !o.isSome {
-		panic("'called `Option[T].Unwrap()` on a `None` value'")
-	}
-
-	return o.val
+func (o Option[T]) Unwrap() (value T, ok bool) {
+	return o.val, o.isSome
 }
 
 // Returns the contained `Some` value or a provided default.
@@ -101,30 +88,6 @@ func (o Option[T]) UnwrapOrDefault() T {
 	var defaultValue T
 	return defaultValue
 }
-
-/**************
-// Couldn't implement thiese method cause method must have no type parametes
-//
-// May support in the future
-//
-// Maps an Option[T] to Option[U] by applying a function to a contained value.
-// func (o Option[T]) Map[U any](f (val T) U) Option[U] {}
-//
-// Map, MapOr, MapOrElse
-**************/
-
-// TODO Needs to think about this
-//
-// Calls the provided closure with a reference to the contained value (if `Some`).
-// func (o Option[T]) Inspect(f func(*T) Option[T]) Option[T] {}
-
-/**************
-// Couldn't implement these method cause method must have no type parametes
-//
-// May support in the future
-//
-// OkOr, OkOrElse
-**************/
 
 // Returns `None` if the option is `None`, otherwise returns `optb`.
 //
@@ -173,18 +136,6 @@ func (o Option[T]) OrElse(f func() Option[T]) Option[T] {
 	return f()
 }
 
-// Returns `Some` if exactly one of the option itself, `optb` is `Some`, otherwise returns `None`.
-func (o Option[T]) Xor(optb Option[T]) Option[T] {
-	switch {
-	case o.IsSome() && optb.IsSome():
-		return o
-	case o.IsNone() && optb.IsNone():
-		return o
-	default:
-		return None[T]()
-	}
-}
-
 // Inserts `value` into the option, then returns a reference to it.
 //
 // If the option already contains a value, the old value is dropped.
@@ -213,18 +164,7 @@ func (o *Option[T]) GetOrInsert(value T) *T {
 func (o *Option[T]) GetOrInsertDefault() *T {
 	if o.IsNone() {
 		var defaultValue T
-		o.val = defaultValue
-		o.isSome = true
-	}
-
-	return &o.val
-}
-
-// Inserts a value computed from `f` into the option if it is `None`, then returns a mutable reference to the contained value.
-func (o *Option[T]) GetOrInsertWith(f func() T) *T {
-	if o.IsNone() {
-		o.val = f()
-		o.isSome = true
+		*o = Some(defaultValue)
 	}
 
 	return &o.val
@@ -240,44 +180,51 @@ func (o *Option[T]) Take() Option[T] {
 	old := Some(o.val)
 
 	// turn o into a `None`
-	var defaultValue T
-	o.val = defaultValue
-	o.isSome = false
-
+	*o = None[T]()
 	return old
 }
 
 // Replaces the actual value in the option by the value given in parameter, returning the old value if present, leaving a `Some` in its place without deinitializing either one.
 func (o *Option[T]) Replace(value T) Option[T] {
 	if o.IsNone() {
-		o.val = value
-		o.isSome = true
-
+		*o = Some(value)
 		return None[T]()
 	}
 
 	// store the old value
-	old := Some(o.val)
+	old := *o
 
 	// replace the value
-	o.val = value
-
+	*o = Some(value)
 	return old
 }
 
-//type T MUST be comparable
-// func (o *Option[T]) Contains(value *T) bool {
-// 	   if o.IsSome() {
-// 		   return o.val == *value
-// 	   }
+func (o *Option[T]) Contains(value T) bool {
+	if o.IsNone() {
+		return false
+	}
 
-//     return false
-// }
+	return o.val == value
+}
 
-/**************
-// Couldn't implement these method cause method must have no type parametes
-//
-// May support in the future
-//
-// Zip, ZipWith, Unzip
-**************/
+func (o Option[T]) MarshalJSON() ([]byte, error) {
+	if o.IsSome() {
+		return json.Marshal(o.val)
+	}
+	return json.Marshal(nil)
+}
+
+func (o *Option[T]) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*o = None[T]()
+		return nil
+	}
+
+	var value T
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+
+	*o = Some(value)
+	return nil
+}
