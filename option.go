@@ -1,21 +1,20 @@
-package evil
+// deeply inspired by Rust's Option type
+package cell
 
 import (
 	"encoding/json"
 	"fmt"
 )
 
+// Option is a type that can be used to represent a value that may or may not
+// be present.
+//
+// Option will take extra memory space to store a boolean flag. But still, it
+// is more efficient than using a pointer to represent a value that may or may
+// not be present.
 type Option[T comparable] struct {
 	val    T
 	isSome bool
-}
-
-func (o Option[T]) String() string {
-	if o.isSome {
-		return fmt.Sprintf("Some(%v)", o.val)
-	}
-
-	return "None"
 }
 
 // Make a `None` value for the given option type.
@@ -59,7 +58,9 @@ func (o Option[T]) Unwrap() (value T, ok bool) {
 
 // Returns the contained `Some` value or a provided default.
 //
-// Arguments passed to UnwrapOr are eagerly evaluated; if you are passing the result of a function call, it is recommended to use UnwrapOrElse, which is lazily evaluated.
+// Arguments passed to UnwrapOr are eagerly evaluated; if you are passing the
+// result of a function call, it is recommended to use UnwrapOrElse, which is
+// lazily evaluated.
 func (o Option[T]) UnwrapOr(val T) T {
 	if o.isSome {
 		return o.val
@@ -79,7 +80,8 @@ func (o Option[T]) UnwrapOrElse(f func() T) T {
 
 // Returns the contained `Some` value or a default.
 //
-// If `Some`, returns the contained value, otherwise if `None`, returns the `default value` for that type.
+// If `Some`, returns the contained value, otherwise if `None`, returns the
+// `default value` for that type.
 func (o Option[T]) UnwrapOrDefault() T {
 	if o.IsSome() {
 		return o.val
@@ -91,7 +93,9 @@ func (o Option[T]) UnwrapOrDefault() T {
 
 // Returns `None` if the option is `None`, otherwise returns `optb`.
 //
-// Arguments passed to `And` are eagerly evaluated; if you are passing the result of a function call, it is recommended to use `AndThen`, which is lazily evaluated.
+// Arguments passed to `And` are eagerly evaluated; if you are passing the
+// result of a function call, it is recommended to use `AndThen`, which is
+// lazily evaluated.
 func (o Option[T]) And(optb Option[T]) Option[T] {
 	if o.IsNone() {
 		return o
@@ -100,7 +104,8 @@ func (o Option[T]) And(optb Option[T]) Option[T] {
 	return optb
 }
 
-// Returns `None` if the option is `None`, otherwise calls `predicate` with the wrapped value and returns:
+// Returns `None` if the option is `None`, otherwise calls `predicate` with
+// the wrapped value and returns:
 //
 //   - `Some(val)` if predicate returns true (where val is the wrapped value), and
 //   - `None` if predicate returns false.
@@ -118,7 +123,8 @@ func (o Option[T]) Filter(predicate func(T) bool) Option[T] {
 
 // Returns the option if it contains a value, otherwise returns `optb`.
 //
-// Arguments passed to or are eagerly evaluated; if you are passing the result of a function call, it is recommended to use `OrElse`, which is lazily evaluated.
+// Arguments passed to or are eagerly evaluated; if you are passing the result
+// of a function call, it is recommended to use `OrElse`, which is lazily evaluated.
 func (o Option[T]) Or(optb Option[T]) Option[T] {
 	if o.IsSome() {
 		return o
@@ -140,7 +146,8 @@ func (o Option[T]) OrElse(f func() Option[T]) Option[T] {
 //
 // If the option already contains a value, the old value is dropped.
 //
-// See also `GetOrInsert`, which doesn’t update the value if the option already contains `Some`.
+// See also `GetOrInsert`, which doesn’t update the value if the option already
+// contains `Some`.
 func (o *Option[T]) Insert(value T) *T {
 	o.val = value
 	o.isSome = true
@@ -160,7 +167,9 @@ func (o *Option[T]) GetOrInsert(value T) *T {
 	return &o.val
 }
 
-// Inserts the default value into the option if it is `None`, then returns a mutable reference to the contained value.
+// Inserts the default value into the option if it is `None`, then returns
+//
+//	a mutable reference to the contained value.
 func (o *Option[T]) GetOrInsertDefault() *T {
 	if o.IsNone() {
 		var defaultValue T
@@ -184,7 +193,9 @@ func (o *Option[T]) Take() Option[T] {
 	return old
 }
 
-// Replaces the actual value in the option by the value given in parameter, returning the old value if present, leaving a `Some` in its place without deinitializing either one.
+// Replaces the actual value in the option by the value given in parameter,
+// returning the old value if present, leaving a `Some` in its place without
+// deinitializing either one.
 func (o *Option[T]) Replace(value T) Option[T] {
 	if o.IsNone() {
 		*o = Some(value)
@@ -199,6 +210,7 @@ func (o *Option[T]) Replace(value T) Option[T] {
 	return old
 }
 
+// Returns `true` if the option is a `Some` value containing the given value.
 func (o *Option[T]) Contains(value T) bool {
 	if o.IsNone() {
 		return false
@@ -207,6 +219,21 @@ func (o *Option[T]) Contains(value T) bool {
 	return o.val == value
 }
 
+// Debug returns a string representation of the Option instance.
+//
+//	"None" is returned if the Option is a `None` value.
+//	"Some(%v)" is returned if the Option is a `Some` value.
+//
+// The `%v` is replaced with the string representation of the inner value.
+func (o Option[T]) Debug() string {
+	if o.isSome {
+		return fmt.Sprintf("Some(%v)", o.val)
+	}
+
+	return "None"
+}
+
+// MarshalJSON implements the json.Marshaler interface.
 func (o Option[T]) MarshalJSON() ([]byte, error) {
 	if o.IsSome() {
 		return json.Marshal(o.val)
@@ -214,6 +241,7 @@ func (o Option[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(nil)
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (o *Option[T]) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		*o = None[T]()
